@@ -1,0 +1,6 @@
+{
+  "name": "MoniSys - Multi-Tenant ISP Billing & Network Monitoring",
+  "description": "Platform multi-tenant monitoring jaringan & billing ISP dengan integrasi Moota, QRIS, Radius, Auto-Isolir, Remote ONT, WhatsApp Gateway, dan MikroTik RouterOS.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
