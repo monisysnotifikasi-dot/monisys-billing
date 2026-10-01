@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ISPProvider, useISP } from './context/ISPContext';
 import { Sidebar } from './components/layout/Sidebar';
 import { Topbar } from './components/layout/Topbar';
@@ -30,6 +30,8 @@ function ISPAppContent() {
   const {
     isMasterPortal,
     switchTenant,
+    allTenants,
+    currentTenant,
     publicViewInvoice,
     setPublicViewInvoice,
     publicIsolirCustomer,
@@ -42,12 +44,55 @@ function ISPAppContent() {
   const [isTenantModalOpen, setIsTenantModalOpen] = useState<boolean>(false);
   const [globalBannerMsg, setGlobalBannerMsg] = useState<string | null>(null);
 
-  // 1. If currently viewing master root portal (monisys.web.id)
-  if (isMasterPortal) {
-    return <MasterDomainLanding onTenantSelect={(tId) => switchTenant(tId)} />;
+  // ========================================================
+  // LOGIKA MULTI-TENANT DOMAIN ROUTING
+  // ========================================================
+  const hostname = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+
+  // Cek apakah sedang membuka subdomain tenant (misal: xplorefiber.monisys.web.id)
+  const isSubdomainTenant =
+    (hostname.endsWith('.monisys.web.id') && hostname !== 'monisys.web.id' && !hostname.startsWith('www.')) ||
+    (hostname.includes('.localhost') && hostname !== 'localhost');
+
+  // Jika membuka domain root utama (monisys.web.id atau www.monisys.web.id), tampilkan Master Landing & Registrasi
+  const isMainLanding =
+    (hostname === 'monisys.web.id' || hostname === 'www.monisys.web.id' || isMasterPortal) &&
+    !isSubdomainTenant;
+
+  // Otomatis sinkronkan tenant jika diakses lewat subdomain langsung (misal xplorefiber.monisys.web.id)
+  useEffect(() => {
+    if (isSubdomainTenant) {
+      const sub = hostname.split('.')[0];
+      const matched = allTenants.find(
+        (t) => (t.subdomain && t.subdomain.toLowerCase() === sub) || t.id.toLowerCase().includes(sub)
+      );
+      if (matched && matched.id !== currentTenant.id) {
+        switchTenant(matched.id);
+      }
+    }
+  }, [hostname, isSubdomainTenant, allTenants, currentTenant.id, switchTenant]);
+
+  // 1. Jika di domain utama (monisys.web.id), tampilkan Halaman Landing & Registrasi Tenant Baru
+  if (isMainLanding) {
+    return (
+      <MasterDomainLanding
+        onTenantSelect={(tId) => {
+          const selected = allTenants.find((t) => t.id === tId);
+          if (selected) {
+            // Jika di domain monisys.web.id, arahkan langsung ke subdomain tenant tersebut
+            if (hostname.includes('monisys.web.id')) {
+              const sub = selected.subdomain || selected.id.replace('tenant-', '');
+              window.location.href = `https://${sub}.monisys.web.id`;
+              return;
+            }
+          }
+          switchTenant(tId);
+        }}
+      />
+    );
   }
 
-  // 2. If viewing a customer invoice by link (/pay/:token)
+  // 2. Jika sedang melihat tagihan customer (/pay/:token)
   if (publicViewInvoice) {
     return (
       <PublicPaymentPortal
@@ -57,7 +102,7 @@ function ISPAppContent() {
     );
   }
 
-  // 3. If viewing simulated Web Isolir landing page
+  // 3. Jika sedang melihat simulasi Web Isolir
   if (publicIsolirCustomer) {
     return (
       <IsolirCustomerLanding
@@ -76,7 +121,7 @@ function ISPAppContent() {
     );
   }
 
-  // 4. Default: Standard Full ISP Administrator & Network Monitoring Panel
+  // 4. Default: Tampilan Dashboard Operasional Tenant ISP
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500 selection:text-white">
       {/* Sidebar Navigation */}
