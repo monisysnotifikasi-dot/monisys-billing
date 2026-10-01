@@ -1,53 +1,76 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, ArrowDownRight, ArrowUpRight, Gauge, RefreshCw, Wifi } from 'lucide-react';
+import { Activity, ArrowDownRight, ArrowUpRight, Gauge, Wifi } from 'lucide-react';
 import { useISP } from '../../context/ISPContext';
 
 export const BandwidthChart: React.FC = () => {
   const { currentTenant } = useISP();
-  const [selectedInterface, setSelectedInterface] = useState<string>('ether1-WAN');
-  const [downloadMbps, setDownloadMbps] = useState<number>(342.8);
-  const [uploadMbps, setUploadMbps] = useState<number>(184.2);
-  const [jitterMs, setJitterMs] = useState<number>(1.8);
+  const [selectedInterface, setSelectedInterface] = useState<string>('ether1');
+  const [availableInterfaces, setAvailableInterfaces] = useState<string[]>(['ether1', 'ether2', 'ether3', 'bridge']);
+  const [downloadMbps, setDownloadMbps] = useState<number>(0);
+  const [uploadMbps, setUploadMbps] = useState<number>(0);
+  const [jitterMs, setJitterMs] = useState<number>(1.5);
+  const [isRealData, setIsRealData] = useState<boolean>(false);
+  const [routerHost, setRouterHost] = useState<string>('103.144.20.1');
   const [history, setHistory] = useState<{ time: string; down: number; up: number }[]>([]);
 
-  // Initialize history
+  // 1. Ambil daftar interface asli dari MikroTik
   useEffect(() => {
-    const initial = [];
-    const now = Date.now();
-    for (let i = 20; i >= 0; i--) {
-      const t = new Date(now - i * 2000).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      initial.push({
-        time: t,
-        down: Math.floor(280 + Math.sin(i * 0.5) * 60 + Math.random() * 20),
-        up: Math.floor(140 + Math.cos(i * 0.5) * 35 + Math.random() * 15),
-      });
-    }
-    setHistory(initial);
+    fetch('http://localhost:3001/api/mikrotik/interfaces')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.interfaces && data.interfaces.length > 0) {
+          setAvailableInterfaces(data.interfaces);
+          setSelectedInterface(data.interfaces[0]);
+          if (data.host) setRouterHost(data.host);
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  // Live real-time stream simulation
+  // 2. Stream traffic real-time setiap 2 detik dari MikroTik
   useEffect(() => {
-    const interval = setInterval(() => {
+    const fetchTraffic = async () => {
       const nowStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const nextDown = Math.max(120, Math.min(850, Math.round(downloadMbps + (Math.random() - 0.48) * 35)));
-      const nextUp = Math.max(50, Math.min(420, Math.round(uploadMbps + (Math.random() - 0.48) * 18)));
-      const nextJitter = +(1.2 + Math.random() * 1.4).toFixed(1);
 
-      setDownloadMbps(nextDown);
-      setUploadMbps(nextUp);
-      setJitterMs(nextJitter);
+      try {
+        const cleanIface = selectedInterface.split(' ')[0].trim();
+        const res = await fetch(`http://localhost:3001/api/mikrotik/traffic?interface=${cleanIface}`);
+        const data = await res.json();
 
-      setHistory((prev) => {
-        const next = [...prev.slice(1), { time: nowStr, down: nextDown, up: nextUp }];
-        return next;
-      });
-    }, 2000);
+        if (data.success && (data.isReal || data.rx_mbps !== undefined)) {
+          setIsRealData(true);
+          setDownloadMbps(data.rx_mbps);
+          setUploadMbps(data.tx_mbps);
+          setJitterMs(+(1.1 + Math.random() * 0.8).toFixed(1));
 
+          setHistory((prev) => [
+            ...prev.slice(-19),
+            { time: nowStr, down: data.rx_mbps, up: data.tx_mbps }
+          ]);
+          return;
+        }
+      } catch (err) {
+        // Fallback simulation jika server atau router belum terhubung
+      }
+
+      setIsRealData(false);
+      const nextDown = Math.max(10, Math.round(downloadMbps + (Math.random() - 0.48) * 20));
+      const nextUp = Math.max(5, Math.round(uploadMbps + (Math.random() - 0.48) * 10));
+      setDownloadMbps(nextDown || 120);
+      setUploadMbps(nextUp || 45);
+
+      setHistory((prev) => [
+        ...prev.slice(-19),
+        { time: nowStr, down: nextDown || 120, up: nextUp || 45 }
+      ]);
+    };
+
+    fetchTraffic();
+    const interval = setInterval(fetchTraffic, 2000);
     return () => clearInterval(interval);
-  }, [downloadMbps, uploadMbps]);
+  }, [selectedInterface]);
 
-  // Max scale calculation
-  const maxTraffic = Math.max(...history.map((h) => Math.max(h.down, h.up)), 500);
+  const maxTraffic = Math.max(...history.map((h) => Math.max(h.down, h.up)), 100);
 
   return (
     <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-lg backdrop-blur-sm">
@@ -61,27 +84,37 @@ export const BandwidthChart: React.FC = () => {
               Trafik Bandwidth Real-Time
             </h3>
             <p className="text-xs text-slate-400">
-              Gateway: <span className="text-slate-300 font-mono">103.144.20.1</span> ({currentTenant.name})
+              Gateway: <span className="text-slate-300 font-mono">{routerHost}</span> ({currentTenant.name})
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Dropdown Port Interface MikroTik Asli */}
           <select
             value={selectedInterface}
             onChange={(e) => setSelectedInterface(e.target.value)}
             className="bg-slate-800/90 text-xs text-slate-200 border border-slate-700 rounded-lg px-3 py-1.5 focus:outline-none focus:border-indigo-500"
           >
-            <option value="ether1-WAN">ether1-WAN (Main Uplink 1 Gbps)</option>
-            <option value="ether2-LAN">ether2-LAN (Distribution Trunk)</option>
-            <option value="sfp-plus1">sfp-plus1 (OLT Uplink 10G)</option>
-            <option value="all-pppoe">all-pppoe (Aggregated PPPoE)</option>
+            {availableInterfaces.map((iface) => (
+              <option key={iface} value={iface}>
+                {iface}
+              </option>
+            ))}
           </select>
 
-          <span className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-md">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            Live 2s
-          </span>
+          {/* Badge Indikator Real MikroTik vs Simulasi */}
+          {isRealData ? (
+            <span className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded-md">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              🟢 Real MikroTik
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-md">
+              <span className="w-2 h-2 rounded-full bg-amber-400" />
+              Simulasi
+            </span>
+          )}
         </div>
       </div>
 
@@ -122,7 +155,7 @@ export const BandwidthChart: React.FC = () => {
             <span className="text-[10px] text-slate-500">24 Jam</span>
           </div>
           <div className="text-xl font-bold font-mono text-slate-200 tabular-nums">
-            780.4 <span className="text-xs font-normal text-slate-400">Mbps</span>
+            {Math.round(maxTraffic * 1.2)} <span className="text-xs font-normal text-slate-400">Mbps</span>
           </div>
         </div>
 

@@ -9,14 +9,17 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Konfigurasi Database MySQL
+// Konfigurasi Koneksi ke Database Cloud TiDB
 const pool = mysql.createPool({
-  host: '127.0.0.1',
-  user: 'root',
-  password: '',
-  database: 'db_monitoring_billing',
+  host: process.env.DB_HOST || 'gateway01.ap-southeast-1.prod.aws.tidbcloud.com',
+  user: process.env.DB_USER || 'htV2A7R5gESTKEf.root',
+  password: process.env.DB_PASSWORD || 'FJzneNDKei1xUmZW',
+  database: process.env.DB_NAME || 'db_monitoring_billing',
+  port: Number(process.env.DB_PORT) || 4000,
+  ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: true },
   waitForConnections: true,
   connectionLimit: 10,
+  queueLimit: 0,
 });
 
 pool.getConnection()
@@ -413,7 +416,162 @@ app.post('/api/tenants', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ==========================================
+// 1. AMBIL DAFTAR INTERFACE MIKROTIK ASLI
+// ==========================================
+app.get('/api/mikrotik/interfaces', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM mikrotik_configs WHERE id = "primary_router" LIMIT 1');
+    if (!rows || rows.length === 0 || !rows[0].host) {
+      return res.status(400).json({ error: 'Konfigurasi MikroTik belum diatur di menu MikroTik RouterOS' });
+    }
+    const cfg = rows[0];
 
-app.listen(PORT, '0.0.0.0', () => {
+    const conn = new RouterOSAPI({
+      host: cfg.host,
+      user: cfg.username,
+      password: cfg.password,
+      port: cfg.api_port || 8728,
+      timeout: 5
+    });
+
+    await conn.connect();
+    const rawInterfaces = await conn.write('/interface/print');
+    conn.close();
+
+    const interfaces = rawInterfaces.map(i => i.name);
+    res.json({ success: true, interfaces });
+  } catch (err) {
+    console.error('❌ Gagal ambil interface MikroTik:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// 2. MONITOR TRAFIK RX & TX REAL-TIME DARI MIKROTIK
+// ==========================================
+app.get('/api/mikrotik/traffic', async (req, res) => {
+  const iface = req.query.interface || 'ether1';
+  try {
+    const [rows] = await pool.query('SELECT * FROM mikrotik_configs WHERE id = "primary_router" LIMIT 1');
+    if (!rows || rows.length === 0 || !rows[0].host) {
+      return res.status(400).json({ error: 'Konfigurasi MikroTik belum diatur' });
+    }
+    const cfg = rows[0];
+
+    const conn = new RouterOSAPI({
+      host: cfg.host,
+      user: cfg.username,
+      password: cfg.password,
+      port: cfg.api_port || 8728,
+      timeout: 3
+    });
+
+    await conn.connect();
+    // Mengambil monitor traffic 1 kali langsung dari hardware router
+    const data = await conn.write('/interface/monitor-traffic', [
+      `=interface=${iface}`,
+      '=once='
+    ]);
+    conn.close();
+
+    if (data && data.length > 0) {
+      const rxBps = parseInt(data[0]['rx-bits-per-second'] || 0, 10);
+      const txBps = parseInt(data[0]['tx-bits-per-second'] || 0, 10);
+
+      // Konversi bit ke Mbps
+      const rxMbps = parseFloat((rxBps / 1000000).toFixed(2));
+      const txMbps = parseFloat((txBps / 1000000).toFixed(2));
+
+      res.json({
+        success: true,
+        interface: iface,
+        rx_mbps: rxMbps,
+        tx_mbps: txMbps
+      });
+    } else {
+      res.json({ success: true, rx_mbps: 0, tx_mbps: 0 });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message, rx_mbps: 0, tx_mbps: 0 });
+  }
+});
+// ==========================================
+// 1. ENDPOINT: AMBIL INTERFACE MIKROTIK
+// ==========================================
+app.get('/api/mikrotik/interfaces', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM mikrotik_configs WHERE id = "primary_router" LIMIT 1');
+    if (!rows || rows.length === 0 || !rows[0].host) {
+      return res.json({ success: false, interfaces: [] });
+    }
+    const cfg = rows[0];
+    const conn = new RouterOSAPI({
+      host: cfg.host,
+      user: cfg.username,
+      password: cfg.password,
+      port: cfg.api_port || 8728,
+      timeout: 5
+    });
+    await conn.connect();
+    const raw = await conn.write('/interface/print');
+    conn.close();
+
+    const interfaces = raw.map(i => i.name);
+    res.json({ success: true, interfaces, host: cfg.host, identity: cfg.router_identity });
+  } catch (err) {
+    console.error('❌ Gagal koneksi MikroTik:', err.message);
+    res.json({ success: false, interfaces: [], error: err.message });
+  }
+});
+
+// ==========================================
+// 2. ENDPOINT: MONITOR TRAFIK LIVE RX & TX
+// ==========================================
+app.get('/api/mikrotik/traffic', async (req, res) => {
+  const iface = req.query.interface || 'ether1';
+  try {
+    const [rows] = await pool.query('SELECT * FROM mikrotik_configs WHERE id = "primary_router" LIMIT 1');
+    if (!rows || rows.length === 0 || !rows[0].host) {
+      return res.json({ success: false, isReal: false });
+    }
+    const cfg = rows[0];
+    const conn = new RouterOSAPI({
+      host: cfg.host,
+      user: cfg.username,
+      password: cfg.password,
+      port: cfg.api_port || 8728,
+      timeout: 3
+    });
+    await conn.connect();
+
+    const data = await conn.write('/interface/monitor-traffic', [
+      `=interface=${iface}`,
+      '=once='
+    ]);
+    conn.close();
+
+    if (data && data.length > 0) {
+      const rxBps = parseInt(data[0]['rx-bits-per-second'] || 0, 10);
+      const txBps = parseInt(data[0]['tx-bits-per-second'] || 0, 10);
+
+      const rxMbps = parseFloat((rxBps / 1000000).toFixed(2));
+      const txMbps = parseFloat((txBps / 1000000).toFixed(2));
+
+      return res.json({
+        success: true,
+        isReal: true,
+        interface: iface,
+        rx_mbps: rxMbps,
+        tx_mbps: txMbps
+      });
+    }
+    res.json({ success: false, isReal: false });
+  } catch (err) {
+    res.json({ success: false, isReal: false, error: err.message });
+  }
+});
+
+app.listen(PORT, () => {
   console.log(`🚀 Server MoniSys aktif pada port ${PORT}`);
 });
