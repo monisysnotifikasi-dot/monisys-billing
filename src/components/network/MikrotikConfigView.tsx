@@ -8,9 +8,7 @@ import {
   RefreshCw,
   Cpu,
   Zap,
-  Shield,
   Activity,
-  Save,
 } from 'lucide-react';
 import { useISP } from '../../context/ISPContext';
 
@@ -24,7 +22,11 @@ export const MikrotikConfigView: React.FC = () => {
   const [useSsl, setUseSsl] = useState(mikrotikConfig.useSsl);
   const [copiedScript, setCopiedScript] = useState(false);
   const [testSuccess, setTestSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [architecture, setArchitecture] = useState<string>('mmips');
+  const [boardName, setBoardName] = useState<string>('hEX');
+  const [boardArch, setBoardArch] = useState<string>('hEX - mmips');
 
   // Generate RouterOS Script
   const generatedScript = `# ==============================================================================
@@ -86,15 +88,81 @@ add name="PROFILE_MONISYS_RADIUS" use-radius=yes dns-server=8.8.8.8,1.1.1.1 loca
     document.body.removeChild(link);
   };
 
-  const handleTestConnection = () => {
+  const handleTestConnection = async () => {
     setIsTesting(true);
-    setTimeout(() => {
+    setErrorMessage(null);
+    setTestSuccess(false);
+
+    try {
+      const res = await fetch('http://localhost:3001/api/mikrotik/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ host, apiPort, username, password, useSsl }),
+      });
+
+      const result = await res.json();
+
+      if (res.ok && result.success) {
+        setTestSuccess(true);
+        if (result.data.architecture) setArchitecture(result.data.architecture);
+        if (result.data.boardName) setBoardName(result.data.boardName);
+        updateMikrotikConfig({
+          host,
+          apiPort,
+          username,
+          password,
+          useSsl,
+          status: 'connected',
+          routerIdentity: result.data.routerIdentity,
+          routerOsVersion: result.data.routerOsVersion,
+          cpuLoad: result.data.cpuLoad,
+          uptime: result.data.uptime,
+          lastSync: 'Baru saja disinkronkan',
+        });
+        setTimeout(() => setTestSuccess(false), 5000);
+      } else {
+        setErrorMessage(result.message || 'Gagal login ke router MikroTik!');
+        updateMikrotikConfig({ status: 'error' });
+      }
+    } catch (err: any) {
+      setErrorMessage('Server backend belum aktif atau port 3001 tidak merespon.');
+      updateMikrotikConfig({ status: 'disconnected' });
+    } finally {
       setIsTesting(false);
-      setTestSuccess(true);
-      updateMikrotikConfig({ host, apiPort, username, password, useSsl });
-      setTimeout(() => setTestSuccess(false), 4000);
-    }, 1200);
-  };
+    }
+  }; // <-- ini kurung penutup handleTestConnection
+
+  // ==============================================================
+  // TAMBAHKAN DI SINI (TEPAT DI ATAS KATA return ()
+  // ==============================================================
+  React.useEffect(() => {
+    if (mikrotikConfig.status !== 'connected') return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('http://localhost:3001/api/mikrotik/test-connection', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ host, apiPort, username, password, useSsl }),
+        });
+        const result = await res.json();
+        if (result.success) {
+          updateMikrotikConfig({
+            cpuLoad: result.data.cpuLoad,
+            uptime: result.data.uptime,
+            lastSync: 'Live Sync Aktif',
+          });
+          if (result.data.boardName) {
+            setBoardArch(`${result.data.boardName} (${result.data.architecture})`);
+          }
+        }
+      } catch (err) {
+        console.log('Sync interval error:', err);
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [mikrotikConfig.status, host, apiPort, username, password]);
 
   return (
     <div className="space-y-6">
@@ -111,9 +179,15 @@ add name="PROFILE_MONISYS_RADIUS" use-radius=yes dns-server=8.8.8.8,1.1.1.1 loca
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 border text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            API RouterOS: Terhubung
+          <span className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 border ${
+            mikrotikConfig.status === 'connected'
+              ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+              : 'text-rose-400 bg-rose-500/10 border-rose-500/20'
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${
+              mikrotikConfig.status === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'
+            }`} />
+            API RouterOS: {mikrotikConfig.status === 'connected' ? 'Terhubung' : 'Terputus'}
           </span>
         </div>
       </div>
@@ -122,6 +196,13 @@ add name="PROFILE_MONISYS_RADIUS" use-radius=yes dns-server=8.8.8.8,1.1.1.1 loca
         <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2 animate-fade-in">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>Koneksi RouterOS API berhasil terhubung dengan Router MikroTik: {mikrotikConfig.routerIdentity}!</span>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs flex items-center gap-2 animate-fade-in">
+          <span className="font-bold shrink-0">❌ Gagal Terhubung:</span>
+          <span>{errorMessage}</span>
         </div>
       )}
 
@@ -140,7 +221,9 @@ add name="PROFILE_MONISYS_RADIUS" use-radius=yes dns-server=8.8.8.8,1.1.1.1 loca
             <Zap className="w-3.5 h-3.5 text-blue-400" /> Versi RouterOS
           </span>
           <p className="text-sm font-bold text-emerald-400 mt-1 font-mono">{mikrotikConfig.routerOsVersion}</p>
-          <span className="text-[10px] text-slate-500 font-mono">Architecture: arm64</span>
+          
+          {/* GANTI BARIS INI: */}
+          <span className="text-[10px] text-slate-500 font-mono">Architecture: {architecture} ({boardName})</span>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
@@ -164,7 +247,6 @@ add name="PROFILE_MONISYS_RADIUS" use-radius=yes dns-server=8.8.8.8,1.1.1.1 loca
 
       {/* Settings & Script Generator */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Settings */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
           <h3 className="text-sm font-semibold text-white flex items-center gap-2">
             <Server className="w-4 h-4 text-indigo-400" />
@@ -233,7 +315,6 @@ add name="PROFILE_MONISYS_RADIUS" use-radius=yes dns-server=8.8.8.8,1.1.1.1 loca
           </div>
         </div>
 
-        {/* Script Preview & RSC Generator */}
         <div className="md:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>

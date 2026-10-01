@@ -293,7 +293,7 @@ export const CompanyProfileView: React.FC = () => {
             onRadiusChange={(r) => setCoverageRadiusKm(r)}
             pinColor="indigo"
             pinLabel={name || 'Kantor NOC ISP'}
-            title="Peta Interaktif Lokasi Kantor NOC & Jangkauan Pelayanan (Coverage Area)"
+            title="Peta Interaktif Lokasi & Jangkauan Pelayanan (Coverage Area)"
             helperText="Geser pin indigo di peta atau klik untuk memindahkan lokasi server/NOC. Geser slider untuk mengatur pelebaran radius cakupan layanan Anda."
             height="280px"
           />

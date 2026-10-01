@@ -77,14 +77,23 @@ export const MysqlManagerView: React.FC = () => {
     setTimeout(() => setCopiedTunnelCmd(false), 2000);
   };
 
-  const handleTestConnection = () => {
-    setIsTestingConn(true);
-    setTimeout(() => {
-      setIsTestingConn(false);
+  const handleTestConnection = async () => {
+  setIsTestingConn(true);
+  try {
+    const res = await fetch('http://localhost:3001/api/health');
+    const data = await res.json();
+    if (data.status === 'connected') {
       setTestSuccess(true);
       setTimeout(() => setTestSuccess(false), 4000);
-    }, 1000);
-  };
+    } else {
+      alert('Gagal konek MySQL: ' + data.message);
+    }
+  } catch (error: any) {
+    alert('Server Backend belum berjalan! Jalankan `node server.js` di terminal.');
+  } finally {
+    setIsTestingConn(false);
+  }
+};
 
   return (
     <div className="space-y-6">

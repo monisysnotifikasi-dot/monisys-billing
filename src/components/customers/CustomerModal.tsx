@@ -96,7 +96,7 @@ export const CustomerModal: React.FC<Props> = ({ customerToEdit, onClose }) => {
     }
   }, [name]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const currentWil = wilayahs.find((w) => w.id === selectedWilayahId);
@@ -124,10 +124,30 @@ export const CustomerModal: React.FC<Props> = ({ customerToEdit, onClose }) => {
       lng,
     };
 
-    if (customerToEdit) {
-      updateCustomer(customerToEdit.id, payload);
-    } else {
-      addCustomer(payload);
+    try {
+      if (customerToEdit) {
+        // JIKA EDIT: Panggil jalur PUT khusus update
+        const res = await fetch(`http://localhost:3001/api/customers/${customerToEdit.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        console.log('✅ Hasil Edit MySQL:', data);
+        updateCustomer(customerToEdit.id, payload);
+      } else {
+        // JIKA BARU: Panggil jalur POST khusus tambah
+        const res = await fetch('http://localhost:3001/api/customers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        console.log('✅ Hasil Tambah MySQL:', data);
+        addCustomer(payload);
+      }
+    } catch (err) {
+      console.error('❌ Gagal menghubungi server MySQL:', err);
     }
 
     onClose();
