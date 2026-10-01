@@ -4,7 +4,7 @@ import mysql from 'mysql2/promise';
 import { RouterOSAPI } from 'node-routeros';
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -413,6 +413,7 @@ app.post('/api/tenants', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-app.listen(PORT, () => {
-  console.log(`🚀 Server Backend MoniSys AKTIF di http://localhost:${PORT}`);
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server MoniSys aktif pada port ${PORT}`);
 });
