@@ -3,14 +3,14 @@ import { Activity, ArrowDownRight, ArrowUpRight, Gauge, Wifi } from 'lucide-reac
 import { useISP } from '../../context/ISPContext';
 
 export const BandwidthChart: React.FC = () => {
-  const { currentTenant } = useISP();
+  const { currentTenant, mikrotikConfig } = useISP();
   const [selectedInterface, setSelectedInterface] = useState<string>('ether1');
   const [availableInterfaces, setAvailableInterfaces] = useState<string[]>(['ether1', 'ether2', 'ether3', 'bridge']);
   const [downloadMbps, setDownloadMbps] = useState<number>(0);
   const [uploadMbps, setUploadMbps] = useState<number>(0);
   const [jitterMs, setJitterMs] = useState<number>(1.5);
   const [isRealData, setIsRealData] = useState<boolean>(false);
-  const [routerHost, setRouterHost] = useState<string>('103.144.20.1');
+  const [routerHost, setRouterHost] = useState<string>(mikrotikConfig?.host || '192.168.88.1');
   const [history, setHistory] = useState<{ time: string; down: number; up: number }[]>([]);
 
   // 1. Ambil daftar interface asli dari MikroTik
