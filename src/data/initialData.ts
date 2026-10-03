@@ -782,7 +782,7 @@ export const INITIAL_AUTO_ISOLIR: AutoIsolirSettings = {
   gracePeriodDays: 2,
   autoActionHour: '00:01',
   firewallAddressList: 'ISOLIR_CLIENT',
-  redirectWebIsolirUrl: 'http://isolir.citranet.monisys.web.id',
+  redirectWebIsolirUrl: 'http://domain-anda.monisys.web.id',
   autoRestoreOnPaid: true,
   sendWhatsAppOnIsolir: true,
 };
