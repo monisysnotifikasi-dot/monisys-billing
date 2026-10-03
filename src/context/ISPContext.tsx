@@ -484,6 +484,7 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `tenant-${Date.now()}`,
       name: data.name,
       slug: cleanSlug,
+      subdomain: cleanSlug,
       domain: `${cleanSlug}.monisys.web.id`,
       logoText: data.name.substring(0, 3).toUpperCase(),
       slogan: 'Koneksi Cepat & Handal',

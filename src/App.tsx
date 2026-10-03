@@ -81,7 +81,7 @@ function ISPAppContent() {
           if (selected) {
             // Jika di domain monisys.web.id, arahkan langsung ke subdomain tenant tersebut
             if (hostname.includes('monisys.web.id')) {
-              const sub = selected.subdomain || selected.id.replace('tenant-', '');
+              const sub = selected.slug || selected.subdomain || selected.name.toLowerCase().replace(/[^a-z0-9]/g, '');
               window.location.href = `https://${sub}.monisys.web.id`;
               return;
             }
