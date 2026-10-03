@@ -478,7 +478,8 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const registerNewTenant = async (data: { name: string; slug: string; phone: string; email: string }) => {
-    const cleanSlug = data.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const rawSlug = (data.slug && !/^\d+$/.test(data.slug)) ? data.slug : data.name;
+    const cleanSlug = rawSlug.toLowerCase().replace(/[^a-z0-9]/g, '');
     const newTenant: Tenant = {
       id: `tenant-${Date.now()}`,
       name: data.name,
@@ -1092,7 +1093,7 @@ const addWilayah = (data: Partial<Wilayah>) => {
 
   const addEmployee = (emp: Partial<Employee>) => {
     const newEmp: Employee = {
-      id: `emp-${Date.now()}`,
+      id: `emp-${()}`,
       name: emp.name || 'Karyawan Baru',
       email: emp.email || 'staff@isp.com',
       phone: emp.phone || '08123456789',
