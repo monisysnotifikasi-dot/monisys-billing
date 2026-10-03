@@ -368,3 +368,4 @@ export const MasterDomainLanding: React.FC<Props> = ({ onTenantSelect }) => {
     </div>
   );
 };
+}

@@ -571,6 +571,149 @@ app.get('/api/mikrotik/traffic', async (req, res) => {
     res.json({ success: false, isReal: false, error: err.message });
   }
 });
+// ==========================================
+// 1. API DATA KARYAWAN (EMPLOYEES)
+// ==========================================
+app.get('/api/employees', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM employees');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/employees', async (req, res) => {
+  const { id, tenant_id, name, role, email, phone, status } = req.body;
+  try {
+    await db.query(
+      `INSERT INTO employees (id, tenant_id, name, role, email, phone, status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?) 
+       ON DUPLICATE KEY UPDATE name=?, role=?, email=?, phone=?, status=?`,
+      [id, tenant_id || 'tenant-default', name, role, email, phone, status || 'active', name, role, email, phone, status || 'active']
+    );
+    res.json({ success: true, message: 'Karyawan tersimpan ke MySQL' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/employees/:id', async (req, res) => {
+  try {
+    await db.query('DELETE FROM employees WHERE id = ?', [req.params.id]);
+    res.json({ success: true, message: 'Karyawan terhapus dari MySQL' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// 2. API PAKET INTERNET (PACKAGES)
+// ==========================================
+app.get('/api/packages', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM packages');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/packages', async (req, res) => {
+  const { id, tenant_id, name, speed, price, type, description } = req.body;
+  try {
+    await db.query(
+      `INSERT INTO packages (id, tenant_id, name, speed, price, type, description) 
+       VALUES (?, ?, ?, ?, ?, ?, ?) 
+       ON DUPLICATE KEY UPDATE name=?, speed=?, price=?, type=?, description=?`,
+      [id, tenant_id || 'tenant-default', name, speed, price, type, description, name, speed, price, type, description]
+    );
+    res.json({ success: true, message: 'Paket tersimpan ke MySQL' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/packages/:id', async (req, res) => {
+  try {
+    await db.query('DELETE FROM packages WHERE id = ?', [req.params.id]);
+    res.json({ success: true, message: 'Paket terhapus dari MySQL' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// 3. API LOKASI ODP (OPTICAL DISTRIBUTION POINT)
+// ==========================================
+app.get('/api/odps', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM odps');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/odps', async (req, res) => {
+  const { id, tenant_id, name, zone, ports_total, ports_used, lat, lng, status } = req.body;
+  try {
+    await db.query(
+      `INSERT INTO odps (id, tenant_id, name, zone, ports_total, ports_used, lat, lng, status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) 
+       ON DUPLICATE KEY UPDATE name=?, zone=?, ports_total=?, ports_used=?, lat=?, lng=?, status=?`,
+      [id, tenant_id || 'tenant-default', name, zone, ports_total, ports_used, lat, lng, status, name, zone, ports_total, ports_used, lat, lng, status]
+    );
+    res.json({ success: true, message: 'ODP tersimpan ke MySQL' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/odps/:id', async (req, res) => {
+  try {
+    await db.query('DELETE FROM odps WHERE id = ?', [req.params.id]);
+    res.json({ success: true, message: 'ODP terhapus dari MySQL' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// 4. API WILAYAH / ZONA
+// ==========================================
+app.get('/api/wilayah', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM wilayah');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/wilayah', async (req, res) => {
+  const { id, tenant_id, name, code, pic, contact } = req.body;
+  try {
+    await db.query(
+      `INSERT INTO wilayah (id, tenant_id, name, code, pic, contact) 
+       VALUES (?, ?, ?, ?, ?, ?) 
+       ON DUPLICATE KEY UPDATE name=?, code=?, pic=?, contact=?`,
+      [id, tenant_id || 'tenant-default', name, code, pic, contact, name, code, pic, contact]
+    );
+    res.json({ success: true, message: 'Wilayah tersimpan ke MySQL' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/wilayah/:id', async (req, res) => {
+  try {
+    await db.query('DELETE FROM wilayah WHERE id = ?', [req.params.id]);
+    res.json({ success: true, message: 'Wilayah terhapus dari MySQL' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`🚀 Server MoniSys aktif pada port ${PORT}`);

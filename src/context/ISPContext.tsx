@@ -211,8 +211,7 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 // Mengambil data pelanggan dari MySQL secara otomatis
   useEffect(() => {
     // Ambil daftar tenant dari MySQL dan aktifkan tenant yang sesuai
-    fetch('${API_BASE_URL}
-      /api/tenants')
+    fetch('${API_BASE_URL}/api/tenants')
       .then((res) => res.json())
       .then((dbTenants) => {
         if (dbTenants && dbTenants.length > 0) {
@@ -388,6 +387,18 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
       .catch((err) => console.log('Belum ada config mikrotik di MySQL:', err));
     }, []);
+    // =======================================================
+    // MUAT DATA KARYAWAN DARI DATABASE MYSQL
+    // =======================================================
+    fetch(`${API_BASE_URL}/api/employees`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setEmployees(data);
+          console.log('✅ Berhasil memuat data karyawan dari MySQL');
+        }
+      })
+      .catch((err) => console.log('Gunakan data awal karyawan:', err));
   // Package CRUD
   const addPackage = (data: Partial<InternetPackage>) => {
     const down = data.speedDownloadMbps || 20;
@@ -490,7 +501,6 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `tenant-${Date.now()}`,
       name: data.name,
       slug: cleanSlug,
-      subdomain: cleanSlug,
       domain: `${cleanSlug}.monisys.web.id`,
       logoText: data.name.substring(0, 3).toUpperCase(),
       slogan: 'Koneksi Cepat & Handal',
@@ -1098,9 +1108,9 @@ const addWilayah = (data: Partial<Wilayah>) => {
     setDashboardWidgets(widgets);
   };
 
-  const addEmployee = (emp: Partial<Employee>) => {
+  const addEmployee = async (emp: Partial<Employee>) => {
     const newEmp: Employee = {
-      id: `emp-${()}`,
+      id: `emp-${Date.now()}`,
       name: emp.name || 'Karyawan Baru',
       email: emp.email || 'staff@isp.com',
       phone: emp.phone || '08123456789',
@@ -1116,15 +1126,59 @@ const addWilayah = (data: Partial<Wilayah>) => {
         canManageEmployees: false,
       },
     };
+    
+    // 1. Perbarui tampilan layar seketika
     setEmployees((prev) => [...prev, newEmp]);
+
+    // 2. Simpan permanen ke database MySQL
+    try {
+      await fetch(`${API_BASE_URL}/api/employees`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newEmp),
+      });
+      console.log('✅ Karyawan baru tersimpan ke MySQL');
+    } catch (err) {
+      console.error('❌ Gagal simpan karyawan ke MySQL:', err);
+    }
   };
 
-  const updateEmployee = (id: string, updates: Partial<Employee>) => {
-    setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, ...updates } : e)));
+  const updateEmployee = async (id: string, updates: Partial<Employee>) => {
+    setEmployees((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, ...updates } : e))
+    );
+
+    // Ambil data yang terbaru untuk disimpan ke MySQL
+    const current = employees.find((e) => e.id === id);
+    if (!current) return;
+    const updated = { ...current, ...updates };
+
+    try {
+      await fetch(`${API_BASE_URL}/api/employees`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      });
+      console.log('✅ Perubahan karyawan tersimpan ke MySQL');
+    } catch (err) {
+      console.error('❌ Gagal update karyawan ke MySQL:', err);
+    }
   };
 
-  const deleteEmployee = (id: string) => {
+  const deleteEmployee = async (id: string) => {
+    // 1. Hapus dari tampilan layar seketika
     setEmployees((prev) => prev.filter((e) => e.id !== id));
+
+    // 2. Hapus permanen dari database MySQL
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/employees/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      console.log('✅ Karyawan terhapus permanen dari MySQL:', data);
+    } catch (err) {
+      console.error('❌ Gagal menghapus karyawan dari MySQL:', err);
+    }
   };
 
   return (
