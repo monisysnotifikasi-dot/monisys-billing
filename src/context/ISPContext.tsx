@@ -34,6 +34,11 @@ import {
   INITIAL_DASHBOARD_WIDGETS,
   INITIAL_PACKAGES,
 } from '../data/initialData';
+// Konfigurasi URL API Dinamis (Otomatis menyesuaikan Lokal vs Online)
+const API_BASE_URL = 
+  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:3001'
+    : '';
 
 interface ISPContextType {
   // Tenant & Domain Navigation
@@ -206,7 +211,8 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 // Mengambil data pelanggan dari MySQL secara otomatis
   useEffect(() => {
     // Ambil daftar tenant dari MySQL dan aktifkan tenant yang sesuai
-    fetch('http://localhost:3001/api/tenants')
+    fetch('${API_BASE_URL}
+      /api/tenants')
       .then((res) => res.json())
       .then((dbTenants) => {
         if (dbTenants && dbTenants.length > 0) {
@@ -245,7 +251,7 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
       .catch((err) => console.log('Gagal memuat tenants dari DB:', err));
     // 1. Ambil Pelanggan dari MySQL
-    fetch('http://localhost:3001/api/customers')
+    fetch('${API_BASE_URL}/api/customers')
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -299,7 +305,7 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .catch((err) => console.log('Gagal load pelanggan MySQL:', err));
 
     // 2. Ambil Wilayah dari MySQL
-    fetch('http://localhost:3001/api/wilayah')
+    fetch('${API_BASE_URL}/api/wilayah')
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
@@ -319,7 +325,7 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .catch((err) => console.log('Gagal load wilayah MySQL:', err));
 
     // 3. Ambil ODP dari MySQL
-    fetch('http://localhost:3001/api/odps')
+    fetch('${API_BASE_URL}/api/odps')
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
@@ -341,7 +347,7 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .catch((err) => console.log('Gagal load ODP MySQL:', err));
 
     // 4. Ambil Paket Internet dari MySQL
-    fetch('http://localhost:3001/api/packages')
+    fetch('${API_BASE_URL}/api/packages')
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
@@ -361,7 +367,7 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
       .catch((err) => console.log('Gagal load paket MySQL:', err));
       // Ambil konfigurasi MikroTik dari MySQL saat web dibuka
-    fetch('http://localhost:3001/api/mikrotik/config')
+    fetch('${API_BASE_URL}/api/mikrotik/config')
       .then((res) => res.json())
       .then((data) => {
         if (data && data.host) {
@@ -404,7 +410,7 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     else {
       setRealPackages((prev) => [...prev, newPkg]);
       // SIMPAN KE MYSQL
-      fetch('http://localhost:3001/api/packages', {
+      fetch('${API_BASE_URL}/api/packages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newPkg),
@@ -418,7 +424,7 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     else {
       setRealPackages(updater);
       // SIMPAN KE MYSQL
-      fetch('http://localhost:3001/api/packages', {
+      fetch('${API_BASE_URL}/api/packages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, ...data }),
@@ -510,7 +516,7 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // SIMPAN TENANT BARU SECARA PERMANEN KE DATABASE MYSQL
     // =======================================================
     try {
-      const res = await fetch('http://localhost:3001/api/tenants', {
+      const res = await fetch('${API_BASE_URL}/api/tenants', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newTenant),
@@ -611,7 +617,7 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setRealCustomers((prev) => prev.filter((c) => c.id !== id));
 
       // HAPUS PERMANEN DARI MYSQL
-      fetch(`http://localhost:3001/api/customers/${id}`, {
+      fetch(`${API_BASE_URL}/api/customers/${id}`, {
         method: 'DELETE',
       })
         .then((res) => res.json())
@@ -748,7 +754,7 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     else {
       setRealOdps((prev) => [...prev, newOdp]);
       // SIMPAN KE MYSQL
-      fetch('http://localhost:3001/api/odps', {
+      fetch('${API_BASE_URL}/api/odps', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newOdp),
@@ -762,7 +768,7 @@ export const ISPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     else {
       setRealOdps(updater);
       // SIMPAN KE MYSQL
-      fetch('http://localhost:3001/api/odps', {
+      fetch('${API_BASE_URL}/api/odps', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, ...data }),
@@ -788,7 +794,7 @@ const addWilayah = (data: Partial<Wilayah>) => {
     else {
       setRealWilayahs((prev) => [...prev, newWil]);
       // SIMPAN KE MYSQL
-      fetch('http://localhost:3001/api/wilayah', {
+      fetch('${API_BASE_URL}/api/wilayah', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newWil),
@@ -802,7 +808,7 @@ const addWilayah = (data: Partial<Wilayah>) => {
     else {
       setRealWilayahs(updater);
       // SIMPAN KE MYSQL
-      fetch('http://localhost:3001/api/wilayah', {
+      fetch('${API_BASE_URL}/api/wilayah', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, ...data }),
@@ -984,7 +990,7 @@ const addWilayah = (data: Partial<Wilayah>) => {
       const updated = { ...prev, ...config };
 
       // SIMPAN PERMANEN KE DATABASE MYSQL
-      fetch('http://localhost:3001/api/mikrotik/config', {
+      fetch('${API_BASE_URL}/api/mikrotik/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated),
