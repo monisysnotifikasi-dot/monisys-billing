@@ -64,8 +64,11 @@ function ISPAppContent() {
     if (isSubdomainTenant) {
       const sub = hostname.split('.')[0];
       const matched = allTenants.find(
-        (t) => (t.subdomain && t.subdomain.toLowerCase() === sub) || t.id.toLowerCase().includes(sub)
-      );
+  (t) => 
+    (t.slug && t.slug.toLowerCase() === sub) || 
+    (t.subdomain && t.subdomain.toLowerCase() === sub) || 
+    t.id.toLowerCase().includes(sub)
+);
       if (matched && matched.id !== currentTenant.id) {
         switchTenant(matched.id);
       }
