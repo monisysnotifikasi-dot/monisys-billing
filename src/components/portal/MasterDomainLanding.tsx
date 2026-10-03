@@ -42,16 +42,18 @@ export const MasterDomainLanding: React.FC<Props> = ({ onTenantSelect }) => {
     if (!ispName || !slug) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      registerNewTenant({
+    setTimeout(async () => {
+      await registerNewTenant({
         name: ispName,
         slug,
         phone,
         email,
       });
       setIsSubmitting(false);
+      
+      // ✅ LANGSUNG ARAHKAN KE DOMAIN SLUG (xplorefiber.monisys.web.id)
+      window.location.href = `https://${slug}.monisys.web.id`;
     }, 800);
-  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
